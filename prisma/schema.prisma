@@ -1,0 +1,141 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  password      String
+  role          String    @default("user") // "user" | "admin"
+  cefrLevel     String?   // A1 | A2 | B1 | B2 | C1 | C2
+  createdAt     DateTime  @default(now())
+
+  lessons       Lesson[]
+  quizAttempts  QuizAttempt[]
+  sessions      Session[]
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Admin-uploaded central workbook PDFs (one per CEFR level)
+model Workbook {
+  id          String   @id @default(cuid())
+  cefrLevel   String   @unique // A1 | A2 | B1 | B2 | C1 | C2
+  title       String
+  filePath    String
+  rawText     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lessons     Lesson[]
+}
+
+// User-uploaded weekly lesson notes
+model Lesson {
+  id          String   @id @default(cuid())
+  userId      String
+  workbookId  String?
+  title       String
+  cefrLevel   String
+  weekNumber  Int?
+  topic       String?
+  filePath    String?
+  rawText     String
+  createdAt   DateTime @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workbook    Workbook? @relation(fields: [workbookId], references: [id])
+  exercises   Exercise[]
+  flashcardDecks FlashcardDeck[]
+  quizzes     Quiz[]
+  vocabulary  VocabItem[]
+}
+
+model VocabItem {
+  id           String  @id @default(cuid())
+  lessonId     String
+  french       String
+  english      String
+  partOfSpeech String?
+  example      String?
+
+  lesson       Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+}
+
+model Exercise {
+  id            String   @id @default(cuid())
+  lessonId      String
+  type          String   // "multiple_choice" | "fill_blank" | "translation"
+  question      String
+  content       String   // JSON: options, correctIndex, correctAnswer, explanation, hint
+  createdAt     DateTime @default(now())
+
+  lesson        Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  quizItems     QuizItem[]
+}
+
+model FlashcardDeck {
+  id        String      @id @default(cuid())
+  lessonId  String
+  title     String
+  createdAt DateTime    @default(now())
+
+  lesson    Lesson      @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  cards     Flashcard[]
+}
+
+model Flashcard {
+  id       String        @id @default(cuid())
+  deckId   String
+  front    String
+  back     String
+  hint     String?
+
+  deck     FlashcardDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+}
+
+model Quiz {
+  id        String     @id @default(cuid())
+  lessonId  String
+  title     String
+  type      String     // "practice" | "mock_exam"
+  createdAt DateTime   @default(now())
+
+  lesson    Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  items     QuizItem[]
+  attempts  QuizAttempt[]
+}
+
+model QuizItem {
+  id         String   @id @default(cuid())
+  quizId     String
+  exerciseId String
+  order      Int
+
+  quiz       Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+}
+
+model QuizAttempt {
+  id        String   @id @default(cuid())
+  quizId    String
+  userId    String
+  score     Int
+  total     Int
+  answers   String   // JSON
+  createdAt DateTime @default(now())
+
+  quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
