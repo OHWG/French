@@ -4,7 +4,8 @@ import path from "path";
 
 function createPrismaClient() {
   const dbPath = path.join(process.cwd(), "dev.db");
-  const adapter = new PrismaBetterSqlite3({ url: dbPath });
+  // Pass journal_mode=WAL via query string — enables WAL mode without a manual connection
+  const adapter = new PrismaBetterSqlite3({ url: `${dbPath}?journal_mode=WAL` });
   return new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],

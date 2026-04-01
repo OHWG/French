@@ -15,9 +15,11 @@ model User {
   cefrLevel     String?   // A1 | A2 | B1 | B2 | C1 | C2
   createdAt     DateTime  @default(now())
 
-  lessons       Lesson[]
-  quizAttempts  QuizAttempt[]
-  sessions      Session[]
+  lessons          Lesson[]
+  quizAttempts     QuizAttempt[]
+  sessions         Session[]
+  mockExams        MockExam[]
+  mockExamAttempts MockExamAttempt[]
 }
 
 model Session {
@@ -43,23 +45,26 @@ model Workbook {
 
 // User-uploaded weekly lesson notes
 model Lesson {
-  id          String   @id @default(cuid())
-  userId      String
-  workbookId  String?
-  title       String
-  cefrLevel   String
-  weekNumber  Int?
-  topic       String?
-  filePath    String?
-  rawText     String
-  createdAt   DateTime @default(now())
+  id                String   @id @default(cuid())
+  userId            String
+  workbookId        String?
+  title             String
+  cefrLevel         String
+  weekNumber        Int?
+  topic             String?
+  filePath          String?
+  rawText           String
+  generationStatus  String   @default("idle") // "idle" | "generating" | "done" | "error"
+  generationError   String?
+  createdAt         DateTime @default(now())
 
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workbook    Workbook? @relation(fields: [workbookId], references: [id])
-  exercises   Exercise[]
+  exercises      Exercise[]
   flashcardDecks FlashcardDeck[]
-  quizzes     Quiz[]
-  vocabulary  VocabItem[]
+  quizzes        Quiz[]
+  vocabulary     VocabItem[]
+  mockExams      MockExamLesson[]
 }
 
 model VocabItem {
@@ -137,5 +142,41 @@ model QuizAttempt {
   createdAt DateTime @default(now())
 
   quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Mock exam combining multiple lessons
+model MockExam {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  cefrLevel String
+  questions String   // JSON: serialised Exercise content array
+  createdAt DateTime @default(now())
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessons   MockExamLesson[]
+  attempts  MockExamAttempt[]
+}
+
+model MockExamLesson {
+  examId   String
+  lessonId String
+  exam     MockExam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  lesson   Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  @@id([examId, lessonId])
+}
+
+model MockExamAttempt {
+  id        String   @id @default(cuid())
+  examId    String
+  userId    String
+  score     Int
+  total     Int
+  answers   String   // JSON
+  results   String   // JSON
+  createdAt DateTime @default(now())
+
+  exam      MockExam @relation(fields: [examId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

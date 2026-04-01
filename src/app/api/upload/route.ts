@@ -11,35 +11,52 @@ export async function POST(req: NextRequest) {
   }
 
   const formData = await req.formData();
-  const file = formData.get("file") as File | null;
   const title = formData.get("title") as string;
   const cefrLevel = formData.get("cefrLevel") as string;
   const weekNumber = formData.get("weekNumber") as string | null;
   const topic = formData.get("topic") as string | null;
   const workbookId = formData.get("workbookId") as string | null;
+  const inputMode = (formData.get("inputMode") as string) ?? "pdf";
+  const pastedText = formData.get("pastedText") as string | null;
 
-  if (!file || !title || !cefrLevel) {
+  if (!title || !cefrLevel) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  if (!file.name.endsWith(".pdf")) {
-    return NextResponse.json({ error: "Only PDF files are accepted" }, { status: 400 });
-  }
-
-  if (file.size > 20 * 1024 * 1024) {
-    return NextResponse.json({ error: "File too large (max 20MB)" }, { status: 400 });
-  }
-
-  const filename = sanitizeFilename(file.name);
-  const filePath = getUploadPath(filename);
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(filePath, buffer);
-
   let rawText = "";
-  try {
-    rawText = await extractTextFromPDF(filePath);
-  } catch {
-    rawText = "[PDF text extraction failed — please check the file]";
+  let filePath: string | null = null;
+
+  if (inputMode === "text") {
+    if (!pastedText || pastedText.trim().length < 50) {
+      return NextResponse.json({ error: "Please paste at least 50 characters of notes" }, { status: 400 });
+    }
+    rawText = pastedText.trim();
+  } else {
+    const file = formData.get("file") as File | null;
+    if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    if (!file.name.endsWith(".pdf")) {
+      return NextResponse.json({ error: "Only PDF files are accepted" }, { status: 400 });
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      return NextResponse.json({ error: "File too large (max 20MB)" }, { status: 400 });
+    }
+
+    const filename = sanitizeFilename(file.name);
+    const fullPath = getUploadPath(filename);
+    const buffer = Buffer.from(await file.arrayBuffer());
+    await writeFile(fullPath, buffer);
+    filePath = `/uploads/${filename}`;
+
+    try {
+      rawText = await extractTextFromPDF(fullPath);
+    } catch {
+      rawText = "";
+    }
+
+    // Warn if extraction yielded very little text (likely a scanned PDF)
+    if (rawText.replace(/\s/g, "").length < PDF_QUALITY_THRESHOLD) {
+      rawText = rawText || "[PDF text extraction failed — file may be a scanned image]";
+    }
   }
 
   const lesson = await prisma.lesson.create({
@@ -50,10 +67,16 @@ export async function POST(req: NextRequest) {
       weekNumber: weekNumber ? parseInt(weekNumber) : null,
       topic: topic || null,
       workbookId: workbookId || null,
-      filePath: `/uploads/${filename}`,
+      filePath,
       rawText,
+      generationStatus: "idle",
     },
   });
 
-  return NextResponse.json({ lessonId: lesson.id }, { status: 201 });
+  return NextResponse.json({
+    lessonId: lesson.id,
+    textQualityWarning: rawText.replace(/\s/g, "").length < PDF_QUALITY_THRESHOLD,
+  }, { status: 201 });
 }
+
+const PDF_QUALITY_THRESHOLD = 200;
