@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 model User {
@@ -11,8 +11,8 @@ model User {
   name          String?
   email         String    @unique
   password      String
-  role          String    @default("user") // "user" | "admin"
-  cefrLevel     String?   // A1 | A2 | B1 | B2 | C1 | C2
+  role          String    @default("user")
+  cefrLevel     String?
   createdAt     DateTime  @default(now())
 
   lessons          Lesson[]
@@ -30,36 +30,32 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// Admin-uploaded central workbook PDFs (one per CEFR level)
 model Workbook {
-  id          String   @id @default(cuid())
-  cefrLevel   String   @unique // A1 | A2 | B1 | B2 | C1 | C2
-  title       String
-  filePath    String
-  rawText     String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  cefrLevel String   @unique
+  title     String
+  rawText   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  lessons     Lesson[]
+  lessons   Lesson[]
 }
 
-// User-uploaded weekly lesson notes
 model Lesson {
-  id                String   @id @default(cuid())
-  userId            String
-  workbookId        String?
-  title             String
-  cefrLevel         String
-  weekNumber        Int?
-  topic             String?
-  filePath          String?
-  rawText           String
-  generationStatus  String   @default("idle") // "idle" | "generating" | "done" | "error"
-  generationError   String?
-  createdAt         DateTime @default(now())
+  id               String   @id @default(cuid())
+  userId           String
+  workbookId       String?
+  title            String
+  cefrLevel        String
+  weekNumber       Int?
+  topic            String?
+  rawText          String
+  generationStatus String   @default("idle")
+  generationError  String?
+  createdAt        DateTime @default(now())
 
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workbook    Workbook? @relation(fields: [workbookId], references: [id])
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workbook       Workbook?        @relation(fields: [workbookId], references: [id])
   exercises      Exercise[]
   flashcardDecks FlashcardDeck[]
   quizzes        Quiz[]
@@ -79,15 +75,15 @@ model VocabItem {
 }
 
 model Exercise {
-  id            String   @id @default(cuid())
-  lessonId      String
-  type          String   // "multiple_choice" | "fill_blank" | "translation"
-  question      String
-  content       String   // JSON: options, correctIndex, correctAnswer, explanation, hint
-  createdAt     DateTime @default(now())
+  id        String   @id @default(cuid())
+  lessonId  String
+  type      String
+  question  String
+  content   String
+  createdAt DateTime @default(now())
 
-  lesson        Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  quizItems     QuizItem[]
+  lesson    Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  quizItems QuizItem[]
 }
 
 model FlashcardDeck {
@@ -101,25 +97,25 @@ model FlashcardDeck {
 }
 
 model Flashcard {
-  id       String        @id @default(cuid())
-  deckId   String
-  front    String
-  back     String
-  hint     String?
+  id    String        @id @default(cuid())
+  deckId String
+  front String
+  back  String
+  hint  String?
 
-  deck     FlashcardDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  deck  FlashcardDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
 }
 
 model Quiz {
   id        String     @id @default(cuid())
   lessonId  String
   title     String
-  type      String     // "practice" | "mock_exam"
+  type      String
   createdAt DateTime   @default(now())
 
-  lesson    Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  items     QuizItem[]
-  attempts  QuizAttempt[]
+  lesson   Lesson      @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  items    QuizItem[]
+  attempts QuizAttempt[]
 }
 
 model QuizItem {
@@ -128,8 +124,8 @@ model QuizItem {
   exerciseId String
   order      Int
 
-  quiz       Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  quiz     Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
 }
 
 model QuizAttempt {
@@ -138,25 +134,24 @@ model QuizAttempt {
   userId    String
   score     Int
   total     Int
-  answers   String   // JSON
+  answers   String
   createdAt DateTime @default(now())
 
-  quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quiz Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// Mock exam combining multiple lessons
 model MockExam {
   id        String   @id @default(cuid())
   userId    String
   title     String
   cefrLevel String
-  questions String   // JSON: serialised Exercise content array
+  questions String
   createdAt DateTime @default(now())
 
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lessons   MockExamLesson[]
-  attempts  MockExamAttempt[]
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessons  MockExamLesson[]
+  attempts MockExamAttempt[]
 }
 
 model MockExamLesson {
@@ -164,6 +159,7 @@ model MockExamLesson {
   lessonId String
   exam     MockExam @relation(fields: [examId], references: [id], onDelete: Cascade)
   lesson   Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
   @@id([examId, lessonId])
 }
 
@@ -173,10 +169,10 @@ model MockExamAttempt {
   userId    String
   score     Int
   total     Int
-  answers   String   // JSON
-  results   String   // JSON
+  answers   String
+  results   String
   createdAt DateTime @default(now())
 
-  exam      MockExam @relation(fields: [examId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam MockExam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

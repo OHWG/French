@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile } from "fs/promises";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { extractTextFromPDF, getUploadPath, sanitizeFilename } from "@/lib/pdf";
+import { extractTextFromBuffer } from "@/lib/pdf";
+
+const PDF_QUALITY_THRESHOLD = 200;
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -24,7 +25,6 @@ export async function POST(req: NextRequest) {
   }
 
   let rawText = "";
-  let filePath: string | null = null;
 
   if (inputMode === "text") {
     if (!pastedText || pastedText.trim().length < 50) {
@@ -41,19 +41,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "File too large (max 20MB)" }, { status: 400 });
     }
 
-    const filename = sanitizeFilename(file.name);
-    const fullPath = getUploadPath(filename);
     const buffer = Buffer.from(await file.arrayBuffer());
-    await writeFile(fullPath, buffer);
-    filePath = `/uploads/${filename}`;
-
     try {
-      rawText = await extractTextFromPDF(fullPath);
+      rawText = await extractTextFromBuffer(buffer);
     } catch {
       rawText = "";
     }
 
-    // Warn if extraction yielded very little text (likely a scanned PDF)
     if (rawText.replace(/\s/g, "").length < PDF_QUALITY_THRESHOLD) {
       rawText = rawText || "[PDF text extraction failed — file may be a scanned image]";
     }
@@ -67,7 +61,6 @@ export async function POST(req: NextRequest) {
       weekNumber: weekNumber ? parseInt(weekNumber) : null,
       topic: topic || null,
       workbookId: workbookId || null,
-      filePath,
       rawText,
       generationStatus: "idle",
     },
@@ -78,5 +71,3 @@ export async function POST(req: NextRequest) {
     textQualityWarning: rawText.replace(/\s/g, "").length < PDF_QUALITY_THRESHOLD,
   }, { status: 201 });
 }
-
-const PDF_QUALITY_THRESHOLD = 200;

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile } from "fs/promises";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { extractTextFromPDF, getUploadPath, sanitizeFilename } from "@/lib/pdf";
+import { extractTextFromBuffer } from "@/lib/pdf";
 
 export async function GET() {
   const workbooks = await prisma.workbook.findMany({ orderBy: { cefrLevel: "asc" } });
@@ -25,22 +24,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
 
-  const filename = sanitizeFilename(file.name);
-  const filePath = getUploadPath(filename);
   const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(filePath, buffer);
-
   let rawText = "";
   try {
-    rawText = await extractTextFromPDF(filePath);
+    rawText = await extractTextFromBuffer(buffer);
   } catch {
     rawText = "[PDF text extraction failed]";
   }
 
   const workbook = await prisma.workbook.upsert({
     where: { cefrLevel },
-    update: { title, filePath: `/uploads/${filename}`, rawText },
-    create: { cefrLevel, title, filePath: `/uploads/${filename}`, rawText },
+    update: { title, rawText },
+    create: { cefrLevel, title, rawText },
   });
 
   return NextResponse.json({ id: workbook.id }, { status: 201 });
