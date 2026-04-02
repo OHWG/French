@@ -1,9 +1,26 @@
-export async function extractTextFromBuffer(buffer: Buffer): Promise<string> {
+/** Encode raw bytes to base64 without relying on Buffer or btoa() */
+function bytesToBase64(bytes: Uint8Array): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let result = "";
+  const len = bytes.length;
+  for (let i = 0; i < len; i += 3) {
+    const b0 = bytes[i];
+    const b1 = i + 1 < len ? bytes[i + 1] : 0;
+    const b2 = i + 2 < len ? bytes[i + 2] : 0;
+    result += chars[b0 >> 2];
+    result += chars[((b0 & 3) << 4) | (b1 >> 4)];
+    result += i + 1 < len ? chars[((b1 & 15) << 2) | (b2 >> 6)] : "=";
+    result += i + 2 < len ? chars[b2 & 63] : "=";
+  }
+  return result;
+}
+
+export async function extractTextFromBuffer(bytes: Uint8Array): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY is not set. Cannot extract text from PDF.");
   }
 
-  const base64 = buffer.toString("base64");
+  const base64 = bytesToBase64(bytes);
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",

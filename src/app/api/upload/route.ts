@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { extractTextFromBuffer } from "@/lib/pdf";
 
+export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const PDF_QUALITY_THRESHOLD = 200;
@@ -43,9 +44,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "File too large (max 20MB)" }, { status: 400 });
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const bytes = new Uint8Array(await file.arrayBuffer());
     try {
-      rawText = await extractTextFromBuffer(buffer);
+      rawText = await extractTextFromBuffer(bytes);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return NextResponse.json(
