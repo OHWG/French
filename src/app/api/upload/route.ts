@@ -49,8 +49,10 @@ export async function POST(req: NextRequest) {
       rawText = await extractTextFromBuffer(bytes);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      const name = err instanceof Error ? err.name : "unknown";
+      const stack = err instanceof Error ? (err.stack ?? "").split("\n").slice(0, 4).join(" | ") : "";
       return NextResponse.json(
-        { error: `PDF text extraction failed: ${msg}. Please use the 'Paste text' option instead.` },
+        { error: `[${name}] ${msg} || stack: ${stack}` },
         { status: 422 }
       );
     }
