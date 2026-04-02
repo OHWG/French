@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { extractTextFromBuffer } from "@/lib/pdf";
 
+export const maxDuration = 60;
+
 const PDF_QUALITY_THRESHOLD = 200;
 
 export async function POST(req: NextRequest) {
@@ -44,12 +46,12 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
     try {
       rawText = await extractTextFromBuffer(buffer);
-    } catch {
-      rawText = "";
-    }
-
-    if (!rawText || rawText.replace(/\s/g, "").length < PDF_QUALITY_THRESHOLD) {
-      rawText = rawText || "";
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return NextResponse.json(
+        { error: `PDF text extraction failed: ${msg}. Please use the 'Paste text' option instead.` },
+        { status: 422 }
+      );
     }
   }
 
