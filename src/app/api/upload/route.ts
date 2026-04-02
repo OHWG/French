@@ -48,8 +48,8 @@ export async function POST(req: NextRequest) {
       rawText = "";
     }
 
-    if (rawText.replace(/\s/g, "").length < PDF_QUALITY_THRESHOLD) {
-      rawText = rawText || "[PDF text extraction failed — file may be a scanned image]";
+    if (!rawText || rawText.replace(/\s/g, "").length < PDF_QUALITY_THRESHOLD) {
+      rawText = rawText || "";
     }
   }
 
