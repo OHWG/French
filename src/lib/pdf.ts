@@ -1,25 +1,8 @@
-const PDF_TEXT_THRESHOLD = 200;
-
 export async function extractTextFromBuffer(buffer: Buffer): Promise<string> {
-  // First try pdf-parse — fast and free for text-based PDFs
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfParse = require("pdf-parse");
-    const data = await pdfParse(buffer);
-    const text = data.text as string;
-    if (text.replace(/\s/g, "").length >= PDF_TEXT_THRESHOLD) {
-      return text;
-    }
-  } catch {
-    // fall through to Claude
-  }
-
-  // Fall back to Anthropic API for scanned / image PDFs
   if (!process.env.ANTHROPIC_API_KEY) {
-    return "";
+    throw new Error("ANTHROPIC_API_KEY is not set. Cannot extract text from PDF.");
   }
 
-  // Call the Anthropic API directly via fetch to avoid SDK btoa encoding issues
   const base64 = buffer.toString("base64");
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
