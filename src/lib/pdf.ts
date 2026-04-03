@@ -20,6 +20,17 @@ export async function extractTextFromBuffer(bytes: Uint8Array): Promise<string> 
     throw new Error("ANTHROPIC_API_KEY is not set. Cannot extract text from PDF.");
   }
 
+  // Validate the key only contains printable ASCII (common issue: corrupted copy-paste)
+  for (let i = 0; i < process.env.ANTHROPIC_API_KEY.length; i++) {
+    const code = process.env.ANTHROPIC_API_KEY.charCodeAt(i);
+    if (code > 127) {
+      throw new Error(
+        `ANTHROPIC_API_KEY contains an invalid character at position ${i} (value ${code}). ` +
+        `Please re-copy the key from console.anthropic.com and update it in Vercel Environment Variables.`
+      );
+    }
+  }
+
   const base64 = bytesToBase64(bytes);
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
