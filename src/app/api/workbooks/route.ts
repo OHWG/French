@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { extractTextFromBuffer } from "@/lib/pdf";
+import { extractTextFromDocx } from "@/lib/docx";
+
+export const runtime = "nodejs";
 
 export async function GET() {
   const workbooks = await prisma.workbook.findMany({ orderBy: { cefrLevel: "asc" } });
@@ -25,11 +28,16 @@ export async function POST(req: NextRequest) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
+  const name = file.name.toLowerCase();
   let rawText = "";
   try {
-    rawText = await extractTextFromBuffer(buffer);
+    if (name.endsWith(".docx") || name.endsWith(".doc")) {
+      rawText = await extractTextFromDocx(buffer);
+    } else {
+      rawText = await extractTextFromBuffer(new Uint8Array(buffer));
+    }
   } catch {
-    rawText = "[PDF text extraction failed]";
+    rawText = "[Text extraction failed]";
   }
 
   const workbook = await prisma.workbook.upsert({

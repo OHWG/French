@@ -34,7 +34,7 @@ export default function AdminWorkbookUpload({
   if (!open) {
     return (
       <button onClick={() => setOpen(true)} className="text-xs text-blue-600 hover:underline">
-        {existingTitle ? "Replace workbook" : "Upload workbook PDF"}
+        {existingTitle ? "Replace workbook" : "Upload workbook"}
       </button>
     );
   }
@@ -52,7 +52,7 @@ export default function AdminWorkbookUpload({
       <input
         name="file"
         type="file"
-        accept=".pdf"
+        accept=".pdf,.docx,.doc"
         required
         className="w-full text-xs text-gray-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700"
       />

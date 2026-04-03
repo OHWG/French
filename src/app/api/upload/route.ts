@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { extractTextFromBuffer } from "@/lib/pdf";
+import { extractTextFromDocx } from "@/lib/docx";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -37,20 +38,30 @@ export async function POST(req: NextRequest) {
   } else {
     const file = formData.get("file") as File | null;
     if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    if (!file.name.endsWith(".pdf")) {
-      return NextResponse.json({ error: "Only PDF files are accepted" }, { status: 400 });
+
+    const name = file.name.toLowerCase();
+    const isDocx = name.endsWith(".docx");
+    const isDoc = name.endsWith(".doc");
+    const isPdf = name.endsWith(".pdf");
+
+    if (!isPdf && !isDocx && !isDoc) {
+      return NextResponse.json({ error: "Only PDF, .docx, or .doc files are accepted" }, { status: 400 });
     }
     if (file.size > 20 * 1024 * 1024) {
       return NextResponse.json({ error: "File too large (max 20MB)" }, { status: 400 });
     }
 
-    const bytes = new Uint8Array(await file.arrayBuffer());
+    const buffer = Buffer.from(await file.arrayBuffer());
     try {
-      rawText = await extractTextFromBuffer(bytes);
+      if (isDocx || isDoc) {
+        rawText = await extractTextFromDocx(buffer);
+      } else {
+        rawText = await extractTextFromBuffer(new Uint8Array(buffer));
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return NextResponse.json(
-        { error: `PDF text extraction failed: ${msg}. Please use the 'Paste text' option instead.` },
+        { error: `File text extraction failed: ${msg}. Please use the 'Paste text' option instead.` },
         { status: 422 }
       );
     }

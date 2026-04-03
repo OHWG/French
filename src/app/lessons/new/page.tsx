@@ -27,7 +27,9 @@ export default function NewLessonPage() {
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || !file.name.endsWith(".pdf")) return;
+    if (!file) return;
+    const name = file.name.toLowerCase();
+    if (!name.endsWith(".pdf") && !name.endsWith(".docx") && !name.endsWith(".doc")) return;
     // Quick client-side size heuristic: small PDFs may be scanned images
     if (file.size < 50 * 1024) {
       setPdfWarning(true);
@@ -159,13 +161,13 @@ export default function NewLessonPage() {
             <input
               name="file"
               type="file"
-              accept=".pdf"
+              accept=".pdf,.docx,.doc"
               required
               onChange={handleFileChange}
               className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:font-medium"
               style={{ ["--file-selector-button-bg" as string]: "#e8edf8" }}
             />
-            <p className="text-xs text-gray-400 mt-1">PDF only · max 20MB</p>
+            <p className="text-xs text-gray-400 mt-1">PDF, Word (.docx/.doc) · max 20MB</p>
 
             {pdfWarning && (
               <div className="mt-2 rounded-lg px-3 py-2 text-xs" style={{ background: "#fff8e1", color: "#856404" }}>
