@@ -20,28 +20,39 @@ export async function POST(req: NextRequest) {
   }
 
   const formData = await req.formData();
-  const file = formData.get("file") as File | null;
   const cefrLevel = formData.get("cefrLevel") as string;
   const title = formData.get("title") as string;
+  const inputMode = (formData.get("inputMode") as string) ?? "file";
+  const pastedText = formData.get("pastedText") as string | null;
 
-  if (!file || !cefrLevel || !title) {
+  if (!cefrLevel || !title) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
-  if (file.size > 20 * 1024 * 1024) {
-    return NextResponse.json({ error: "File too large (max 20MB)" }, { status: 400 });
-  }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const name = file.name.toLowerCase();
   let rawText = "";
-  try {
-    if (name.endsWith(".docx") || name.endsWith(".doc")) {
-      rawText = await extractTextFromDocx(buffer);
-    } else {
-      rawText = await extractTextFromBuffer(new Uint8Array(buffer));
+
+  if (inputMode === "text") {
+    if (!pastedText || pastedText.trim().length < 50) {
+      return NextResponse.json({ error: "Please paste at least 50 characters of text" }, { status: 400 });
     }
-  } catch {
-    rawText = "[Text extraction failed]";
+    rawText = pastedText.trim();
+  } else {
+    const file = formData.get("file") as File | null;
+    if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    if (file.size > 4 * 1024 * 1024) {
+      return NextResponse.json({ error: "File too large (max 4MB). Use the Paste text option for larger workbooks." }, { status: 400 });
+    }
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const name = file.name.toLowerCase();
+    try {
+      if (name.endsWith(".docx") || name.endsWith(".doc")) {
+        rawText = await extractTextFromDocx(buffer);
+      } else {
+        rawText = await extractTextFromBuffer(new Uint8Array(buffer));
+      }
+    } catch {
+      rawText = "[Text extraction failed]";
+    }
   }
 
   const workbook = await prisma.workbook.upsert({
