@@ -5,6 +5,7 @@ import { extractTextFromBuffer } from "@/lib/pdf";
 import { extractTextFromDocx } from "@/lib/docx";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function GET() {
   const workbooks = await prisma.workbook.findMany({ orderBy: { cefrLevel: "asc" } });
@@ -25,6 +26,9 @@ export async function POST(req: NextRequest) {
 
   if (!file || !cefrLevel || !title) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+  }
+  if (file.size > 20 * 1024 * 1024) {
+    return NextResponse.json({ error: "File too large (max 20MB)" }, { status: 400 });
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
